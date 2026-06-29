@@ -51,7 +51,7 @@ func main() {
 		return
 	}
 
-	p := tea.NewProgram(tui.NewModel(word, svc))
+	p := tea.NewProgram(tui.NewAppModel(word, svc, store))
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

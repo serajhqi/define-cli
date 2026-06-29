@@ -26,13 +26,14 @@ type lookupResultMsg struct {
 }
 
 type Model struct {
-	word     string
-	def      *api.Definition
-	err      error
-	service  *dict.Service
-	viewport viewport.Model
-	quitting bool
-	width    int
+	word      string
+	def       *api.Definition
+	err       error
+	service   *dict.Service
+	viewport  viewport.Model
+	quitting  bool
+	fromCache bool
+	width     int
 }
 
 func NewModel(word string, service *dict.Service) Model {
@@ -118,7 +119,12 @@ func (m Model) renderHeader() string {
 		phonetic = dimStyle.Render("  " + m.def.Phonetics[0])
 	}
 
-	return wordStyle.PaddingLeft(2).Render(m.def.Word) + phonetic
+	cached := ""
+	if m.fromCache {
+		cached = muted.Render(" (cached)")
+	}
+
+	return wordStyle.PaddingLeft(2).Render(m.def.Word) + phonetic + cached
 }
 
 func (m Model) renderTree() string {
