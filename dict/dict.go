@@ -21,19 +21,26 @@ func NewService(client *api.Client, store *cache.Store) *Service {
 }
 
 func (s *Service) Lookup(word string, force bool) (string, error) {
+	def, err := s.LookupDefinition(word, force)
+	if err != nil {
+		return output.RenderError(word, err.Error()), nil
+	}
+	return output.Render(def), nil
+}
+
+func (s *Service) LookupDefinition(word string, force bool) (*api.Definition, error) {
 	if !force {
 		if entry, ok := s.cache.Get(word); ok {
-			return output.Render(entry.Data), nil
+			return entry.Data, nil
 		}
 	}
 
 	def, err := s.api.Lookup(word)
 	if err != nil {
-		// Try cache as fallback on API error
 		if entry, ok := s.cache.Get(word); ok {
-			return output.Render(entry.Data), nil
+			return entry.Data, nil
 		}
-		return output.RenderError(word, err.Error()), nil
+		return nil, err
 	}
 
 	preview := ""
@@ -50,5 +57,5 @@ func (s *Service) Lookup(word string, force bool) (string, error) {
 		LookedUpAt: time.Now(),
 	})
 
-	return output.Render(def), nil
+	return def, nil
 }

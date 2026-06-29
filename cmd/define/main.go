@@ -6,17 +6,21 @@ import (
 	"os"
 	"path/filepath"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/seraj/define/api"
 	"github.com/seraj/define/cache"
 	"github.com/seraj/define/dict"
+	"github.com/seraj/define/tui"
 )
 
 func main() {
 	force := flag.Bool("f", false, "force refresh, bypass cache")
+	plain := flag.Bool("plain", false, "plain text output (no TUI)")
 	flag.Parse()
 
 	if flag.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: define [-f] <word>")
+		fmt.Fprintln(os.Stderr, "Usage: define [-f] [-plain] <word>")
 		os.Exit(1)
 	}
 
@@ -37,11 +41,19 @@ func main() {
 	client := api.NewClient()
 	svc := dict.NewService(client, store)
 
-	result, err := svc.Lookup(word, *force)
-	if err != nil {
+	if *plain {
+		result, err := svc.Lookup(word, *force)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Print(result)
+		return
+	}
+
+	p := tea.NewProgram(tui.NewModel(word, svc))
+	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
-	fmt.Print(result)
 }
