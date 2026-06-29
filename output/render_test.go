@@ -16,7 +16,7 @@ func stripANSI(s string) string { return ansiRE.ReplaceAllString(s, "") }
 func TestRenderDefinition(t *testing.T) {
 	def := &api.Definition{
 		Word:      "aim",
-		Phonetics: []string{"/eɪm/"},
+		Phonetics: []api.Phonetic{{Text: "/eɪm/"}},
 		Meanings: []api.Meaning{
 			{
 				PartOfSpeech: "verb",

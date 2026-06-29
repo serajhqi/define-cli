@@ -3,6 +3,7 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/seraj/define/audio"
 	"github.com/seraj/define/cache"
 	"github.com/seraj/define/dict"
 )
@@ -18,11 +19,13 @@ type AppModel struct {
 	screen   screen
 	history  HistoryModel
 	defModel Model
+	player   *audio.Player
 }
 
-func NewAppModel(word string, svc *dict.Service, store *cache.Store) AppModel {
+func NewAppModel(word string, svc *dict.Service, store *cache.Store, player *audio.Player) AppModel {
 	a := AppModel{
 		history: NewHistoryModel(svc, store),
+		player:  player,
 	}
 
 	if word == "" {
@@ -30,6 +33,7 @@ func NewAppModel(word string, svc *dict.Service, store *cache.Store) AppModel {
 	} else {
 		a.screen = screenDefinition
 		a.defModel = NewModel(word, svc)
+		a.defModel.SetPlayer(player)
 	}
 
 	return a
@@ -57,6 +61,7 @@ func (a AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.defModel = NewModel(msg.def.Word, a.history.service)
+		a.defModel.SetPlayer(a.player)
 		a.defModel.def = msg.def
 		a.defModel.fromCache = true
 		a.defModel.viewport.SetContent(a.defModel.renderTree())

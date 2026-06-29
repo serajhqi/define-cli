@@ -31,7 +31,7 @@ func Render(def *api.Definition) string {
 
 	b.WriteString("  " + wordHeader(def.Word))
 	if len(def.Phonetics) > 0 {
-		b.WriteString("  " + wordHeader(def.Phonetics[0]))
+		b.WriteString("  " + wordHeader(def.Phonetics[0].Text))
 	}
 	b.WriteString("\n\n")
 

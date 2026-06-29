@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -9,20 +10,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/seraj/define/api"
+	"github.com/seraj/define/audio"
 	"github.com/seraj/define/cache"
 	"github.com/seraj/define/dict"
+	"github.com/seraj/define/output"
 	"github.com/seraj/define/tui"
 )
 
 func main() {
 	force := flag.Bool("f", false, "force refresh, bypass cache")
 	plain := flag.Bool("plain", false, "plain text output (no TUI)")
+	play := flag.Bool("play", false, "auto-play pronunciation on startup")
 	flag.Parse()
-
-	if flag.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: define [-f] [-plain] <word>")
-		os.Exit(1)
-	}
 
 	word := flag.Arg(0)
 
@@ -42,6 +41,10 @@ func main() {
 	svc := dict.NewService(client, store)
 
 	if *plain {
+		if word == "" {
+			fmt.Fprintln(os.Stderr, "Usage: define --plain <word>")
+			os.Exit(1)
+		}
 		result, err := svc.Lookup(word, *force)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -51,7 +54,27 @@ func main() {
 		return
 	}
 
-	p := tea.NewProgram(tui.NewAppModel(word, svc, store))
+	player, _ := audio.Detect()
+	if *play && player != nil && word != "" {
+		def, err := svc.LookupDefinition(word, *force)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Print(output.Render(def))
+
+		go func() {
+			for i := range def.Phonetics {
+				if def.Phonetics[i].Audio != "" {
+					player.Play(context.Background(), def.Phonetics[i].Audio)
+					break
+				}
+			}
+		}()
+		return
+	}
+
+	p := tea.NewProgram(tui.NewAppModel(word, svc, store, player))
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

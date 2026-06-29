@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -8,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/seraj/define/api"
+	"github.com/seraj/define/audio"
 	"github.com/seraj/define/dict"
 )
 
@@ -25,6 +27,20 @@ type lookupResultMsg struct {
 	err error
 }
 
+type audioState int
+
+const (
+	audioIdle audioState = iota
+	audioPlaying
+	audioDone
+	audioError
+)
+
+type audioStateMsg struct {
+	state audioState
+	err   error
+}
+
 type Model struct {
 	word      string
 	def       *api.Definition
@@ -34,6 +50,12 @@ type Model struct {
 	quitting  bool
 	fromCache bool
 	width     int
+
+	player    *audio.Player
+	audioSt   audioState
+	audioErr  error
+	audioCh   <-chan audioStateMsg
+	cancel    context.CancelFunc
 }
 
 func NewModel(word string, service *dict.Service) Model {
@@ -46,6 +68,10 @@ func NewModel(word string, service *dict.Service) Model {
 		viewport: vp,
 		width:    70,
 	}
+}
+
+func (m *Model) SetPlayer(p *audio.Player) {
+	m.player = p
 }
 
 func (m Model) Init() tea.Cmd {
@@ -71,6 +97,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
 			return m, cmd
+		case "p":
+			return m, m.startPlayback()
+		case "s":
+			if m.audioSt == audioPlaying && m.cancel != nil {
+				m.cancel()
+				m.audioSt = audioIdle
+			}
+			return m, nil
 		}
 
 	case lookupResultMsg:
@@ -80,6 +114,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.def = msg.def
 		}
 		m.viewport.SetContent(m.renderTree())
+		return m, nil
+
+	case audioStateMsg:
+		m.audioSt = msg.state
+		m.audioErr = msg.err
+		if msg.state == audioPlaying {
+			return m, m.waitAudio()
+		}
 		return m, nil
 
 	case tea.WindowSizeMsg:
@@ -116,7 +158,7 @@ func (m Model) renderHeader() string {
 
 	phonetic := ""
 	if len(m.def.Phonetics) > 0 {
-		phonetic = dimStyle.Render("  " + m.def.Phonetics[0])
+		phonetic = dimStyle.Render("  " + m.def.Phonetics[0].Text)
 	}
 
 	cached := ""
@@ -124,7 +166,22 @@ func (m Model) renderHeader() string {
 		cached = muted.Render(" (cached)")
 	}
 
-	return wordStyle.PaddingLeft(2).Render(m.def.Word) + phonetic + cached
+	audioBadge := ""
+	switch m.audioSt {
+	case audioPlaying:
+		audioBadge = muted.Render("  ♫ playing...")
+	case audioDone:
+		audioBadge = muted.Render("  ♫ done")
+	case audioError:
+		audioBadge = errStyle.Render("  ♫ error")
+	}
+
+	playBadge := ""
+	if m.hasAudio() && m.audioSt == audioIdle {
+		playBadge = muted.Render("  ♫ play")
+	}
+
+	return wordStyle.PaddingLeft(2).Render(m.def.Word) + phonetic + cached + audioBadge + playBadge
 }
 
 func (m Model) renderTree() string {
@@ -179,5 +236,79 @@ func (m Model) renderFooter() string {
 		muted.Render("[↑/↓] scroll"),
 		muted.Render("[q] quit"),
 	}
+
+	if m.hasAudio() {
+		if m.audioSt == audioPlaying {
+			parts = append(parts, muted.Render("[s] stop"))
+		} else if m.audioSt == audioError {
+			parts = append(parts, muted.Render("[p] retry"))
+		} else {
+			parts = append(parts, muted.Render("[p] play"))
+		}
+	}
+
+	if m.audioSt == audioError && m.audioErr != nil {
+		parts = append(parts, errStyle.Render(m.audioErr.Error()))
+	}
+
 	return muted.Render(lipgloss.NewStyle().PaddingLeft(2).Render(lipgloss.JoinHorizontal(lipgloss.Top, parts...)))
+}
+
+func (m Model) hasAudio() bool {
+	if m.player == nil || m.def == nil {
+		return false
+	}
+	for _, p := range m.def.Phonetics {
+		if p.Audio != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) audioURL() string {
+	if m.def == nil {
+		return ""
+	}
+	for _, p := range m.def.Phonetics {
+		if p.Audio != "" {
+			return p.Audio
+		}
+	}
+	return ""
+}
+
+func (m *Model) startPlayback() tea.Cmd {
+	url := m.audioURL()
+	if url == "" {
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	m.cancel = cancel
+	ch := make(chan audioStateMsg, 1)
+	m.audioCh = ch
+
+	go func() {
+		defer close(ch)
+		ch <- audioStateMsg{state: audioPlaying}
+		if err := m.player.Play(ctx, url); err != nil {
+			ch <- audioStateMsg{state: audioError, err: err}
+		} else {
+			ch <- audioStateMsg{state: audioDone}
+		}
+	}()
+
+	return m.waitAudio()
+}
+
+func (m *Model) waitAudio() tea.Cmd {
+	ch := m.audioCh
+	return func() tea.Msg {
+		msg, ok := <-ch
+		if !ok {
+			return nil
+		}
+		return msg
+	}
 }

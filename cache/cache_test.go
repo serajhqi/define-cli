@@ -22,7 +22,7 @@ func TestSetGet(t *testing.T) {
 	entry := &cache.CacheEntry{
 		Data: &api.Definition{
 			Word:      "hello",
-			Phonetics: []string{"/həˈloʊ/"},
+			Phonetics: []api.Phonetic{{Text: "/həˈloʊ/"}},
 			Meanings: []api.Meaning{
 				{
 					PartOfSpeech: "interjection",

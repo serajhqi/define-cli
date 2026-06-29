@@ -12,7 +12,7 @@ import (
 func TestAppStartsWithHistory(t *testing.T) {
 	store, _ := cache.NewStore(t.TempDir() + "/cache.json")
 	svc := dict.NewService(nil, store)
-	app := NewAppModel("", svc, store)
+	app := NewAppModel("", svc, store, nil)
 
 	if app.screen != screenHistory {
 		t.Error("app with no word should start in history screen")
@@ -25,7 +25,7 @@ func TestAppStartsWithHistory(t *testing.T) {
 func TestAppStartsWithDefinition(t *testing.T) {
 	store, _ := cache.NewStore(t.TempDir() + "/cache.json")
 	svc := dict.NewService(nil, store)
-	app := NewAppModel("hello", svc, store)
+	app := NewAppModel("hello", svc, store, nil)
 
 	if app.screen != screenDefinition {
 		t.Error("app with word should start in definition screen")
@@ -35,7 +35,7 @@ func TestAppStartsWithDefinition(t *testing.T) {
 func TestAppQuitsOnCtrlC(t *testing.T) {
 	store, _ := cache.NewStore(t.TempDir() + "/cache.json")
 	svc := dict.NewService(nil, store)
-	app := NewAppModel("", svc, store)
+	app := NewAppModel("", svc, store, nil)
 
 	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
 	if cmd == nil {
@@ -46,8 +46,8 @@ func TestAppQuitsOnCtrlC(t *testing.T) {
 func TestAppQGoesBackFromDefinition(t *testing.T) {
 	store, _ := cache.NewStore(t.TempDir() + "/cache.json")
 	svc := dict.NewService(nil, store)
-	app := NewAppModel("hello", svc, store)
-	app.defModel.def = nil // simulate initial lookup error or no data
+	app := NewAppModel("hello", svc, store, nil)
+	app.defModel.def = nil
 
 	next, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	nextApp, ok := next.(AppModel)

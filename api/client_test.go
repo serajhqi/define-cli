@@ -39,11 +39,11 @@ func TestLookupSuccess(t *testing.T) {
 	if len(def.Phonetics) != 2 {
 		t.Fatalf("phonetics count = %d, want 2", len(def.Phonetics))
 	}
-	if def.Phonetics[0] != "/həˈləʊ/" {
-		t.Errorf("phonetics[0] = %q, want %q", def.Phonetics[0], "/həˈləʊ/")
+	if def.Phonetics[0].Text != "/həˈləʊ/" {
+		t.Errorf("phonetics[0] = %q, want %q", def.Phonetics[0].Text, "/həˈləʊ/")
 	}
-	if def.Phonetics[1] != "/həˈloʊ/" {
-		t.Errorf("phonetics[1] = %q, want %q", def.Phonetics[1], "/həˈloʊ/")
+	if def.Phonetics[1].Text != "/həˈloʊ/" {
+		t.Errorf("phonetics[1] = %q, want %q", def.Phonetics[1].Text, "/həˈloʊ/")
 	}
 	if len(def.Meanings) != 3 {
 		t.Fatalf("meanings count = %d, want 3", len(def.Meanings))

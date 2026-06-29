@@ -7,9 +7,14 @@ import (
 	"time"
 )
 
+type Phonetic struct {
+	Text  string
+	Audio string
+}
+
 type Definition struct {
 	Word      string
-	Phonetics []string
+	Phonetics []Phonetic
 	Meanings  []Meaning
 }
 
@@ -62,7 +67,8 @@ type apiResponse struct {
 }
 
 type apiPhonetic struct {
-	Text string `json:"text"`
+	Text  string `json:"text"`
+	Audio string `json:"audio"`
 }
 
 type apiMeaning struct {
@@ -111,7 +117,10 @@ func (c *Client) Lookup(word string) (*Definition, error) {
 
 	for _, p := range entry.Phonetics {
 		if p.Text != "" {
-			def.Phonetics = append(def.Phonetics, p.Text)
+			def.Phonetics = append(def.Phonetics, Phonetic{
+				Text:  p.Text,
+				Audio: p.Audio,
+			})
 		}
 	}
 
