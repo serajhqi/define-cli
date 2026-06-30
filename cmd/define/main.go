@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"golang.org/x/term"
 
 	"github.com/seraj/define/api"
 	"github.com/seraj/define/audio"
@@ -40,17 +41,19 @@ func main() {
 	client := api.NewClient()
 	svc := dict.NewService(client, store)
 
-	if *plain {
+	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+
+	if *plain || !isTerminal {
 		if word == "" {
 			fmt.Fprintln(os.Stderr, "Usage: define --plain <word>")
 			os.Exit(1)
 		}
-		result, err := svc.Lookup(word, *force)
+		defRaw, err := svc.LookupDefinition(word, *force)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Print(result)
+		fmt.Print(output.RenderPlain(defRaw))
 		return
 	}
 

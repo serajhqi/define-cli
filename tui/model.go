@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -11,6 +12,7 @@ import (
 	"github.com/seraj/define/api"
 	"github.com/seraj/define/audio"
 	"github.com/seraj/define/dict"
+	"github.com/seraj/define/stem"
 )
 
 var (
@@ -20,6 +22,8 @@ var (
 	dimStyle  = lipgloss.NewStyle().Faint(true)
 	errStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 	muted     = lipgloss.NewStyle().Faint(true).Foreground(lipgloss.Color("8"))
+	synStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	antStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
 )
 
 type lookupResultMsg struct {
@@ -192,6 +196,8 @@ func (m Model) renderTree() string {
 		return ""
 	}
 
+	searchStem := stem.Stem(m.word)
+
 	var s string
 	for mi, meaning := range m.def.Meanings {
 		isLast := mi == len(m.def.Meanings)-1
@@ -204,18 +210,21 @@ func (m Model) renderTree() string {
 
 		for di, d := range meaning.Definitions {
 			num := fmt.Sprintf("%d. ", di+1)
+			text := highlightInflections(d.Definition, searchStem, defStyle)
 
 			if isLast {
-				s += dimStyle.Render("      ├─ ") + defStyle.Render(num+d.Definition) + "\n"
+				s += dimStyle.Render("      ├─ ") + num + text + "\n"
 			} else {
-				s += dimStyle.Render("  │   ├─ ") + defStyle.Render(num+d.Definition) + "\n"
+				s += dimStyle.Render("  │   ├─ ") + num + text + "\n"
 			}
 
 			if d.Example != "" {
+				exText := highlightInflections(d.Example, searchStem, dimStyle)
+
 				if isLast {
-					s += dimStyle.Render("      │    ╰─ ") + dimStyle.Render("\""+d.Example+"\"") + "\n"
+					s += dimStyle.Render("      │    ╰─ ") + dimStyle.Render("\"") + exText + dimStyle.Render("\"") + "\n"
 				} else {
-					s += dimStyle.Render("  │   │    ╰─ ") + dimStyle.Render("\""+d.Example+"\"") + "\n"
+					s += dimStyle.Render("  │   │    ╰─ ") + dimStyle.Render("\"") + exText + dimStyle.Render("\"") + "\n"
 				}
 			}
 		}
@@ -223,9 +232,42 @@ func (m Model) renderTree() string {
 		if !isLast {
 			s += dimStyle.Render("  │") + "\n"
 		}
+
+		if len(meaning.Synonyms) > 0 {
+			synLine := synStyle.Render("syn: ") + dimStyle.Render(strings.Join(meaning.Synonyms, " · "))
+			if isLast {
+				s += "      " + synLine + "\n"
+			} else {
+				s += "  │   " + synLine + "\n"
+			}
+		}
+		if len(meaning.Antonyms) > 0 {
+			antLine := antStyle.Render("ant: ") + dimStyle.Render(strings.Join(meaning.Antonyms, " · "))
+			if isLast {
+				s += "      " + antLine + "\n"
+			} else {
+				s += "  │   " + antLine + "\n"
+			}
+		}
 	}
 
 	return s
+}
+
+func highlightInflections(text, searchStem string, baseStyle lipgloss.Style) string {
+	var result strings.Builder
+	for _, word := range stem.Tokenize(text) {
+		if word == "" {
+			continue
+		}
+		s := stem.Stem(word)
+		if s == searchStem {
+			result.WriteString(wordStyle.Render(word))
+		} else {
+			result.WriteString(baseStyle.Render(word))
+		}
+	}
+	return result.String()
 }
 
 func (m Model) renderFooter() string {

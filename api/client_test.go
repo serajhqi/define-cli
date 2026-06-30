@@ -23,7 +23,7 @@ func TestLookupSuccess(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`[{"word":"hello","phonetics":[{"text":"/həˈləʊ/"},{"text":"/həˈloʊ/"}],"meanings":[{"partOfSpeech":"noun","definitions":[{"definition":"\"Hello!\" or an equivalent greeting.","example":""}],"synonyms":["greeting"]},{"partOfSpeech":"verb","definitions":[{"definition":"To greet with \"hello\".","example":""}]},{"partOfSpeech":"interjection","definitions":[{"definition":"A greeting (salutation) said when meeting someone.","example":"Hello, everyone."},{"definition":"A greeting used when answering the telephone.","example":"Hello? How may I help you?"}]}]}]`))
+		w.Write([]byte(`[{"word":"hello","phonetics":[{"text":"/həˈləʊ/"},{"text":"/həˈloʊ/"}],"meanings":[{"partOfSpeech":"noun","definitions":[{"definition":"\"Hello!\" or an equivalent greeting.","example":""}],"synonyms":["greeting"]},{"partOfSpeech":"verb","definitions":[{"definition":"To greet with \"hello\".","example":""}],"synonyms":[],"antonyms":[]},{"partOfSpeech":"interjection","definitions":[{"definition":"A greeting (salutation) said when meeting someone.","example":"Hello, everyone."},{"definition":"A greeting used when answering the telephone.","example":"Hello? How may I help you?"}],"synonyms":["hi","hey"],"antonyms":["goodbye"]}]}]`))
 	}))
 	defer srv.Close()
 

@@ -21,6 +21,8 @@ type Definition struct {
 type Meaning struct {
 	PartOfSpeech string
 	Definitions  []Def
+	Synonyms     []string
+	Antonyms     []string
 }
 
 type Def struct {
@@ -74,6 +76,8 @@ type apiPhonetic struct {
 type apiMeaning struct {
 	PartOfSpeech string        `json:"partOfSpeech"`
 	Definitions  []apiDef      `json:"definitions"`
+	Synonyms     []string      `json:"synonyms"`
+	Antonyms     []string      `json:"antonyms"`
 }
 
 type apiDef struct {
@@ -127,6 +131,8 @@ func (c *Client) Lookup(word string) (*Definition, error) {
 	for _, m := range entry.Meanings {
 		meaning := Meaning{
 			PartOfSpeech: m.PartOfSpeech,
+			Synonyms:     m.Synonyms,
+			Antonyms:     m.Antonyms,
 		}
 		for _, d := range m.Definitions {
 			meaning.Definitions = append(meaning.Definitions, Def{

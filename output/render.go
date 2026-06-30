@@ -2,6 +2,7 @@ package output
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/seraj/define/api"
@@ -131,4 +132,16 @@ func truncateColored(s string, max int) string {
 		}
 	}
 	return string(runes[:end]) + reset + "..."
+}
+
+var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func RenderPlain(def *api.Definition) string {
+	colored := Render(def)
+	return ansiPattern.ReplaceAllString(colored, "")
+}
+
+func RenderErrorPlain(word, msg string) string {
+	colored := RenderError(word, msg)
+	return ansiPattern.ReplaceAllString(colored, "")
 }

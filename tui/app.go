@@ -2,6 +2,7 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/seraj/define/audio"
 	"github.com/seraj/define/cache"
@@ -13,6 +14,7 @@ type screen int
 const (
 	screenHistory screen = iota
 	screenDefinition
+	screenHelp
 )
 
 type AppModel struct {
@@ -72,7 +74,16 @@ func (a AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return a, tea.Quit
+		case "?":
+			if a.screen != screenHelp {
+				a.screen = screenHelp
+				return a, nil
+			}
 		case "q", "esc":
+			if a.screen == screenHelp {
+				a.screen = screenHistory
+				return a, nil
+			}
 			if a.screen == screenDefinition {
 				a.screen = screenHistory
 				a.history.reloadItems()
@@ -110,8 +121,60 @@ func (a AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a AppModel) View() string {
+	if a.screen == screenHelp {
+		return a.renderHelp()
+	}
 	if a.screen == screenHistory {
 		return a.history.View()
 	}
 	return a.defModel.View()
+}
+
+func (a AppModel) renderHelp() string {
+	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11")).PaddingLeft(2).Render("define — Dictionary CLI\n\n")
+	sections := []struct {
+		header string
+		items  []string
+	}{
+		{"Keybindings",
+			[]string{
+				"[p]      play pronunciation",
+				"[s]      stop playback",
+				"[f]      force refresh (bypass cache)",
+				"[b]      back to history",
+				"[?]      this help screen",
+				"[↑/↓]    scroll / navigate",
+				"[q]      quit / back",
+				"[esc]    quit / back",
+				"[ctrl+c]  quit",
+			},
+		},
+		{"History Browser",
+			[]string{
+				"[↑/↓]    navigate list",
+				"[enter]   select word / look up",
+				"[d]       delete cached word",
+			},
+		},
+		{"CLI Flags",
+			[]string{
+				"-f        force refresh API call",
+				"--plain   plain text output, no TUI",
+				"--play    auto-play pronunciation",
+				"define -h  show this help",
+			},
+		},
+	}
+
+	var s string
+	s += title
+	for _, sec := range sections {
+		s += muted.Render("  "+sec.header) + "\n"
+		for _, item := range sec.items {
+			s += muted.Render("    " + item) + "\n"
+		}
+		s += "\n"
+	}
+	s += muted.Render("  Press [q] or [esc] to go back.\n")
+	return s
 }
