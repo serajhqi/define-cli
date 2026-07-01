@@ -18,10 +18,42 @@ import (
 	"github.com/seraj/define/tui"
 )
 
+func printHelp() {
+	fmt.Print(`define — Dictionary CLI
+
+Usage:
+  define [flags] [word]
+  define [flags] --history
+
+Description:
+  Look up English word definitions from the Free Dictionary API.
+  Without a word, or with --history, launches the interactive TUI browser.
+  With a word, prints the definition and exits (one-shot mode).
+
+Flags:
+  --history    launch interactive TUI history browser
+  --play       auto-play pronunciation on startup
+  --plain      plain text output, no ANSI colors or TUI
+  -f           force refresh, bypass cache
+  -h, --help   show this help
+
+Examples:
+  define                              Launch TUI history browser
+  define --history                    Launch TUI history browser
+  define hello                        Look up "hello" (one-shot, colored ANSI)
+  define --play hello                 Look up "hello" and play pronunciation
+  define --plain hello                Look up "hello" (plain text, no colors)
+  define -f hello                     Look up "hello", force fresh API call
+  echo hello | define --plain hello   Plain mode (auto-detects pipe)
+`)
+}
+
 func main() {
+	history := flag.Bool("history", false, "launch interactive TUI history browser")
 	force := flag.Bool("f", false, "force refresh, bypass cache")
 	plain := flag.Bool("plain", false, "plain text output (no TUI)")
 	play := flag.Bool("play", false, "auto-play pronunciation on startup")
+	flag.Usage = printHelp
 	flag.Parse()
 
 	word := flag.Arg(0)
@@ -40,10 +72,18 @@ func main() {
 
 	client := api.NewClient()
 	svc := dict.NewService(client, store)
+	player, _ := audio.Detect()
 
 	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 
-	player, _ := audio.Detect()
+	if *history {
+		p := tea.NewProgram(tui.NewAppModel("", svc, store, player))
+		if _, err := p.Run(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if *plain || !isTerminal {
 		if word == "" {

@@ -158,10 +158,11 @@ func (a AppModel) renderHelp() string {
 		},
 		{"CLI Flags",
 			[]string{
-				"-f        force refresh API call",
-				"--plain   plain text output, no TUI",
-				"--play    auto-play pronunciation",
-				"define -h  show this help",
+				"--history  launch TUI history browser",
+				"--play     auto-play pronunciation",
+				"--plain    plain text output, no TUI",
+				"-f         force refresh API call",
+				"--help     show this help",
 			},
 		},
 	}
