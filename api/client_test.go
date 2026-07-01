@@ -136,3 +136,51 @@ func TestLookupRateLimited(t *testing.T) {
 		t.Errorf("error should mention rate limit, got: %v", err)
 	}
 }
+
+func TestFirstPhoneticText(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []api.Phonetic
+		want string
+	}{
+		{"nil", nil, ""},
+		{"empty", []api.Phonetic{}, ""},
+		{"single", []api.Phonetic{{Text: "/test/"}}, "/test/"},
+		{"audio only", []api.Phonetic{{Text: "", Audio: "https://..."}}, ""},
+		{"text second", []api.Phonetic{{Audio: "https://..."}, {Text: "/real/"}}, "/real/"},
+		{"mixed", []api.Phonetic{{Text: ""}, {Audio: "http://", Text: ""}, {Text: "/found/"}}, "/found/"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := api.FirstPhoneticText(tt.in); got != tt.want {
+				t.Errorf("FirstPhoneticText() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLookupPreservesAudioOnlyPhonetic(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[{"word":"raw","phonetics":[{"text":"","audio":"https://example.com/raw.mp3"},{"text":"/rɔː/","audio":""}],"meanings":[]}]`))
+	}))
+	defer srv.Close()
+
+	client := api.NewClient(api.WithBaseURL(srv.URL))
+	def, err := client.Lookup("raw")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(def.Phonetics) != 2 {
+		t.Fatalf("phonetics count = %d, want 2", len(def.Phonetics))
+	}
+	if def.Phonetics[0].Audio != "https://example.com/raw.mp3" {
+		t.Errorf("phonetics[0].Audio = %q, want audio URL", def.Phonetics[0].Audio)
+	}
+	if def.Phonetics[1].Audio != "" {
+		t.Errorf("phonetics[1].Audio = %q, want empty", def.Phonetics[1].Audio)
+	}
+	if api.FirstPhoneticText(def.Phonetics) != "/rɔː/" {
+		t.Errorf("FirstPhoneticText = %q, want /rɔː/", api.FirstPhoneticText(def.Phonetics))
+	}
+}

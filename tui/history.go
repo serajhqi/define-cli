@@ -200,14 +200,28 @@ func (m HistoryModel) View() string {
 		}
 
 		preview := item.Preview
-		if len(preview) > 65 {
-			preview = preview[:62] + "..."
+		maxPreview := m.width - 7
+		if len(preview) > maxPreview {
+			preview = preview[:maxPreview-3] + "..."
 		}
 
-		b.WriteString(fmt.Sprintf("%s%s\n", cursor, muted.Render(item.Word)))
-		b.WriteString(fmt.Sprintf("     %s\n", dimStyle.Render(preview)))
-		b.WriteString(fmt.Sprintf("     %s\n", dimStyle.Render(item.LookedUpAt.Format("2006-01-02 15:04"))))
-		b.WriteString("\n")
+		wordStr := wordStyle.Render(item.Word)
+		dateStr := muted.Render(item.LookedUpAt.Format("2006-01-02 15:04"))
+		padding := m.width - 6 - lipgloss.Width(wordStr) - lipgloss.Width(dateStr)
+		if padding < 1 {
+			padding = 1
+		}
+
+		b.WriteString(fmt.Sprintf("%s%s%s%s\n", cursor, wordStr, strings.Repeat(" ", padding), dateStr))
+		b.WriteString(fmt.Sprintf("     %s\n", defStyle.Render(preview)))
+
+		if i < len(m.filtered)-1 || m.showLookup {
+			dots := (m.width - 4) / 3
+			if dots > 30 {
+				dots = 30
+			}
+			b.WriteString("  " + muted.Render(strings.Repeat("· ", dots)) + "\n")
+		}
 	}
 
 	if m.showLookup {
@@ -215,17 +229,20 @@ func (m HistoryModel) View() string {
 		if m.cursor >= len(m.filtered) {
 			cursor = bold.Render("> ")
 		}
-		b.WriteString(fmt.Sprintf("%s%s '%s'  [Enter]\n", cursor, muted.Render("Look up"), m.input.Value()))
+		b.WriteString(fmt.Sprintf("%s%s '%s'  [Enter]\n", cursor, wordStyle.Render("Look up →"), wordStyle.Render(m.input.Value())))
 		b.WriteString("\n")
 	}
 
-	footer := muted.Render(lipgloss.NewStyle().PaddingLeft(2).Render(
-		lipgloss.JoinHorizontal(lipgloss.Top,
-			muted.Render("[↑/↓] nav"),
-			muted.Render("[enter] select"),
-			muted.Render("[d] delete"),
-			muted.Render("[q] quit"),
-		),
+	footerStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("15")).
+		Foreground(lipgloss.Color("0")).
+		Padding(0, 2).
+		Width(m.width)
+	footer := footerStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top,
+		"[↑/↓] nav",
+		"[enter] select",
+		"[d] delete",
+		"[q] quit",
 	))
 	b.WriteString(footer)
 

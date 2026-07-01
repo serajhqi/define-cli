@@ -12,6 +12,15 @@ type Phonetic struct {
 	Audio string
 }
 
+func FirstPhoneticText(ps []Phonetic) string {
+	for _, p := range ps {
+		if p.Text != "" {
+			return p.Text
+		}
+	}
+	return ""
+}
+
 type Definition struct {
 	Word      string
 	Phonetics []Phonetic
@@ -120,7 +129,7 @@ func (c *Client) Lookup(word string) (*Definition, error) {
 	}
 
 	for _, p := range entry.Phonetics {
-		if p.Text != "" {
+		if p.Text != "" || p.Audio != "" {
 			def.Phonetics = append(def.Phonetics, Phonetic{
 				Text:  p.Text,
 				Audio: p.Audio,

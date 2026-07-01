@@ -43,6 +43,8 @@ func main() {
 
 	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 
+	player, _ := audio.Detect()
+
 	if *plain || !isTerminal {
 		if word == "" {
 			fmt.Fprintln(os.Stderr, "Usage: define --plain <word>")
@@ -57,8 +59,7 @@ func main() {
 		return
 	}
 
-	player, _ := audio.Detect()
-	if *play && player != nil && word != "" {
+	if word != "" {
 		def, err := svc.LookupDefinition(word, *force)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -66,18 +67,18 @@ func main() {
 		}
 		fmt.Print(output.Render(def))
 
-		go func() {
-			for i := range def.Phonetics {
-				if def.Phonetics[i].Audio != "" {
-					player.Play(context.Background(), def.Phonetics[i].Audio)
+		if *play && player != nil {
+			for _, p := range def.Phonetics {
+				if p.Audio != "" {
+					player.Play(context.Background(), word, p.Audio, *force)
 					break
 				}
 			}
-		}()
+		}
 		return
 	}
 
-	p := tea.NewProgram(tui.NewAppModel(word, svc, store, player))
+	p := tea.NewProgram(tui.NewAppModel("", svc, store, player))
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

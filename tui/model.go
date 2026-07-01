@@ -19,11 +19,12 @@ var (
 	wordStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
 	posStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14"))
 	defStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("15"))
-	dimStyle  = lipgloss.NewStyle().Faint(true)
+	dimStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 	errStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-	muted     = lipgloss.NewStyle().Faint(true).Foreground(lipgloss.Color("8"))
+	muted     = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	synStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	antStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
+	phonStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
 )
 
 type lookupResultMsg struct {
@@ -64,7 +65,6 @@ type Model struct {
 
 func NewModel(word string, service *dict.Service) Model {
 	vp := viewport.New(70, 20)
-	vp.KeyMap = viewport.KeyMap{}
 
 	return Model{
 		word:     word,
@@ -161,8 +161,9 @@ func (m Model) renderHeader() string {
 	}
 
 	phonetic := ""
-	if len(m.def.Phonetics) > 0 {
-		phonetic = dimStyle.Render("  " + m.def.Phonetics[0].Text)
+	phonText := api.FirstPhoneticText(m.def.Phonetics)
+	if phonText != "" {
+		phonetic = phonStyle.Render("  " + phonText)
 	}
 
 	cached := ""
@@ -272,28 +273,33 @@ func highlightInflections(text, searchStem string, baseStyle lipgloss.Style) str
 
 func (m Model) renderFooter() string {
 	parts := []string{
-		muted.Render("[b] back"),
-		muted.Render("[?] help"),
-		muted.Render("[f] refresh"),
-		muted.Render("[↑/↓] scroll"),
-		muted.Render("[q] quit"),
+		"[b] back",
+		"[?] help",
+		"[f] refresh",
+		"[↑/↓] scroll",
+		"[q] quit",
 	}
 
 	if m.hasAudio() {
 		if m.audioSt == audioPlaying {
-			parts = append(parts, muted.Render("[s] stop"))
+			parts = append(parts, "[s] stop")
 		} else if m.audioSt == audioError {
-			parts = append(parts, muted.Render("[p] retry"))
+			parts = append(parts, "[p] retry")
 		} else {
-			parts = append(parts, muted.Render("[p] play"))
+			parts = append(parts, "[p] play")
 		}
 	}
 
 	if m.audioSt == audioError && m.audioErr != nil {
-		parts = append(parts, errStyle.Render(m.audioErr.Error()))
+		parts = append(parts, m.audioErr.Error())
 	}
 
-	return muted.Render(lipgloss.NewStyle().PaddingLeft(2).Render(lipgloss.JoinHorizontal(lipgloss.Top, parts...)))
+	footerStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("15")).
+		Foreground(lipgloss.Color("0")).
+		Padding(0, 2).
+		Width(m.width)
+	return footerStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, parts...))
 }
 
 func (m Model) hasAudio() bool {
@@ -334,7 +340,7 @@ func (m *Model) startPlayback() tea.Cmd {
 	go func() {
 		defer close(ch)
 		ch <- audioStateMsg{state: audioPlaying}
-		if err := m.player.Play(ctx, url); err != nil {
+		if err := m.player.Play(ctx, m.word, url, false); err != nil {
 			ch <- audioStateMsg{state: audioError, err: err}
 		} else {
 			ch <- audioStateMsg{state: audioDone}

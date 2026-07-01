@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 type Player struct {
@@ -28,30 +29,45 @@ func (p *Player) Command() string {
 	return p.cmd
 }
 
-func (p *Player) Play(ctx context.Context, url string) error {
+func (p *Player) Play(ctx context.Context, word, url string, force bool) error {
 	if url == "" {
 		return fmt.Errorf("no audio URL")
 	}
 
-	tmpDir := os.TempDir()
-	tmpFile, err := os.CreateTemp(tmpDir, "define-audio-*.mp3")
+	cachePath := filepath.Join(os.TempDir(), "define-"+word+".mp3")
+
+	if !force {
+		if info, err := os.Stat(cachePath); err == nil && info.Size() > 0 {
+			return playFile(ctx, p.cmd, cachePath)
+		}
+	}
+
+	tmpFile, err := os.CreateTemp(os.TempDir(), "define-audio-*.mp3")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
 
 	if err := downloadFile(ctx, url, tmpFile); err != nil {
 		tmpFile.Close()
+		os.Remove(tmpPath)
 		return fmt.Errorf("download audio: %w", err)
 	}
 	tmpFile.Close()
 
-	args := playerArgs(p.cmd, tmpPath)
+	if err := os.Rename(tmpPath, cachePath); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("cache audio: %w", err)
+	}
+
+	return playFile(ctx, p.cmd, cachePath)
+}
+
+func playFile(ctx context.Context, playerCmd, path string) error {
+	args := playerArgs(playerCmd, path)
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
-
 	return cmd.Run()
 }
 
@@ -88,4 +104,3 @@ func playerArgs(cmd, file string) []string {
 		return []string{file}
 	}
 }
-

@@ -13,14 +13,16 @@ const width = 70
 const (
 	reset        = "\033[0m"
 	bold         = "\033[1m"
-	dim          = "\033[2m"
+	dim          = "\033[38;5;245m"
 	white        = "\033[37m"
 	brightYellow = "\033[93m"
 	cyan         = "\033[36m"
+	blue         = "\033[94m"
 	red          = "\033[91m"
 )
 
 func wordHeader(s string) string     { return bold + brightYellow + s + reset }
+func phoneticLabel(s string) string   { return blue + s + reset }
 func posLabel(s string) string       { return bold + cyan + s + reset }
 func definitionText(s string) string { return white + s + reset }
 func exampleText(s string) string    { return dim + s + reset }
@@ -31,8 +33,9 @@ func Render(def *api.Definition) string {
 	var b strings.Builder
 
 	b.WriteString("  " + wordHeader(def.Word))
-	if len(def.Phonetics) > 0 {
-		b.WriteString("  " + wordHeader(def.Phonetics[0].Text))
+	phonText := api.FirstPhoneticText(def.Phonetics)
+	if phonText != "" {
+		b.WriteString("  " + phoneticLabel(phonText))
 	}
 	b.WriteString("\n\n")
 
