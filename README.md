@@ -5,7 +5,7 @@ Terminal dictionary — look up English word definitions without leaving the CLI
 ## Quick install
 
 ```bash
-curl -fsSL https://github.com/seraj/define/releases/latest/download/define-linux-amd64 -o /usr/local/bin/define && chmod +x /usr/local/bin/define
+curl -fsSL https://github.com/serajhqi/define-cli/releases/latest/download/define-linux-amd64 -o /usr/local/bin/define && chmod +x /usr/local/bin/define
 ```
 
 ## Usage
@@ -40,5 +40,5 @@ Piped output is automatically plain text — no flag needed.
 ## Install from source
 
 ```bash
-go install github.com/seraj/define/cmd/define@latest
+go install github.com/serajhqi/define-cli/cmd/define@latest
 ```
