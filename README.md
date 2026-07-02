@@ -5,7 +5,19 @@ Terminal dictionary — look up English word definitions without leaving the CLI
 ## Quick install
 
 ```bash
-curl -fsSL https://github.com/serajhqi/define-cli/releases/latest/download/define-linux-amd64 -o /usr/local/bin/define && chmod +x /usr/local/bin/define
+curl -fSL https://github.com/serajhqi/define-cli/releases/latest/download/define-linux-amd64 -o ~/.local/bin/define && chmod +x ~/.local/bin/define
+```
+
+If `~/.local/bin` is not on your `PATH`, add it:
+
+**bash** (`~/.bashrc`):
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+**fish** (`~/.config/fish/config.fish`):
+```fish
+fish_add_path ~/.local/bin
 ```
 
 ## Usage
