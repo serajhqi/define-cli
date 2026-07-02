@@ -19,7 +19,7 @@ const (
 
 type AppModel struct {
 	screen   screen
-	history  HistoryModel
+	history  *HistoryModel
 	defModel Model
 	player   *audio.Player
 }
@@ -108,7 +108,7 @@ func (a AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if a.screen == screenHistory {
 		next, cmd := a.history.Update(msg)
-		a.history = next.(HistoryModel)
+		a.history = next.(*HistoryModel)
 		if a.history.quitting {
 			return a, tea.Quit
 		}
@@ -153,7 +153,7 @@ func (a AppModel) renderHelp() string {
 			[]string{
 				"[↑/↓]    navigate list",
 				"[enter]   select word / look up",
-				"[d]       delete cached word",
+				"[del]     delete cached word",
 			},
 		},
 		{"CLI Flags",

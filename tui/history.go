@@ -27,7 +27,7 @@ type HistoryModel struct {
 	quitting   bool
 }
 
-func NewHistoryModel(service *dict.Service, store *cache.Store) HistoryModel {
+func NewHistoryModel(service *dict.Service, store *cache.Store) *HistoryModel {
 	ti := textinput.New()
 	ti.Placeholder = "Filter..."
 	ti.Focus()
@@ -35,7 +35,7 @@ func NewHistoryModel(service *dict.Service, store *cache.Store) HistoryModel {
 
 	items, _ := store.List()
 
-	return HistoryModel{
+	return &HistoryModel{
 		service:  service,
 		store:    store,
 		input:    ti,
@@ -45,11 +45,11 @@ func NewHistoryModel(service *dict.Service, store *cache.Store) HistoryModel {
 	}
 }
 
-func (m HistoryModel) Init() tea.Cmd {
+func (m *HistoryModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m HistoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *HistoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.confirming {
 		return m.updateConfirm(msg)
 	}
@@ -96,7 +96,7 @@ func (m HistoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "d":
+		case "delete":
 			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 				m.confirming = true
 				m.confirmIdx = m.cursor
@@ -174,13 +174,34 @@ func (m *HistoryModel) filterItems() {
 	}
 }
 
-func (m HistoryModel) View() string {
+func (m *HistoryModel) View() string {
 	if m.quitting {
 		return ""
 	}
 
 	if m.confirming {
 		return m.renderConfirm()
+	}
+
+	start := 0
+	end := len(m.filtered)
+
+	if m.height > 0 {
+		headerRows := 2
+		footerRows := 1
+		lookupRows := 0
+		if m.showLookup {
+			lookupRows = 2
+		}
+
+		availableRows := m.height - headerRows - footerRows - lookupRows
+		if availableRows < 0 {
+			availableRows = 0
+		}
+
+		itemsPerRow := 3
+		maxVisible := availableRows / itemsPerRow
+		start, end = m.visibleRange(maxVisible)
 	}
 
 	var b strings.Builder
@@ -193,7 +214,8 @@ func (m HistoryModel) View() string {
 		b.WriteString(muted.Render("  No cached words yet.\n"))
 	}
 
-	for i, item := range m.filtered {
+	for i := start; i < end; i++ {
+		item := m.filtered[i]
 		cursor := "  "
 		if m.cursor == i {
 			cursor = bold.Render("> ")
@@ -241,7 +263,7 @@ func (m HistoryModel) View() string {
 	footer := footerStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top,
 		"[↑/↓] nav",
 		"[enter] select",
-		"[d] delete",
+		"[del] delete",
 		"[q] quit",
 	))
 	b.WriteString(footer)
@@ -249,7 +271,29 @@ func (m HistoryModel) View() string {
 	return b.String()
 }
 
-func (m HistoryModel) renderConfirm() string {
+func (m *HistoryModel) visibleRange(maxVisible int) (int, int) {
+	total := len(m.filtered)
+	if total <= maxVisible {
+		return 0, total
+	}
+
+	half := maxVisible / 2
+	start := m.cursor - half
+	end := start + maxVisible
+
+	if start < 0 {
+		start = 0
+		end = maxVisible
+	}
+	if end > total {
+		end = total
+		start = total - maxVisible
+	}
+
+	return start, end
+}
+
+func (m *HistoryModel) renderConfirm() string {
 	if m.confirmIdx < 0 || m.confirmIdx >= len(m.filtered) {
 		m.confirming = false
 		return m.View()
@@ -257,7 +301,7 @@ func (m HistoryModel) renderConfirm() string {
 
 	word := m.filtered[m.confirmIdx].Word
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("  Delete %q from cache?\n\n", wordStyle.Render(word)))
+	b.WriteString(fmt.Sprintf("  Delete \"%s\" from cache?\n\n", wordStyle.Render(word)))
 	b.WriteString(fmt.Sprintf("  %s  %s\n", muted.Render("[y] yes"), muted.Render("[n] no")))
 	return b.String()
 }
