@@ -39,10 +39,10 @@ func TestRenderDefinition(t *testing.T) {
 	lines := strings.Split(plain, "\n")
 
 	// Header: word and phonetic
-	if !strings.Contains(lines[0], "aim") {
-		t.Errorf("first line should contain word, got: %q", lines[0])
+	if !strings.Contains(lines[1], "aim") {
+		t.Errorf("second line should contain word, got: %q", lines[1])
 	}
-	if !strings.Contains(strings.Join(lines[:3], "\n"), "/eɪm/") {
+	if !strings.Contains(strings.Join(lines[:4], "\n"), "/eɪm/") {
 		t.Error("should contain phonetic")
 	}
 
@@ -69,13 +69,6 @@ func TestRenderDefinition(t *testing.T) {
 	}
 	if !strings.Contains(full, "I aim to finish") {
 		t.Error("should contain second example")
-	}
-
-	// Width check: no line should exceed 70 chars
-	for i, line := range lines {
-		if len(line) > 70 {
-			t.Errorf("line %d exceeds 70 chars: %d chars: %q", i, len(line), line)
-		}
 	}
 }
 

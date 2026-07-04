@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/seraj/define/api"
 )
@@ -29,10 +30,57 @@ func exampleText(s string) string    { return dim + s + reset }
 func treeLine(s string) string       { return dim + s + reset }
 func errorText(s string) string      { return red + s + reset }
 
+func visibleLen(s string) int {
+	n := 0
+	inEsc := false
+	for _, r := range s {
+		if r == '\033' {
+			inEsc = true
+		} else if inEsc {
+			if r == 'm' {
+				inEsc = false
+			}
+		} else {
+			n++
+		}
+	}
+	return n
+}
+
+func wrapText(text string, maxWidth int) []string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return []string{""}
+	}
+
+	var lines []string
+	var cur []string
+	curLen := 0
+
+	for _, w := range words {
+		wlen := utf8.RuneCountInString(w)
+		if len(cur) == 0 {
+			cur = append(cur, w)
+			curLen = wlen
+		} else if curLen+1+wlen <= maxWidth {
+			cur = append(cur, w)
+			curLen += 1 + wlen
+		} else {
+			lines = append(lines, strings.Join(cur, " "))
+			cur = []string{w}
+			curLen = wlen
+		}
+	}
+	if len(cur) > 0 {
+		lines = append(lines, strings.Join(cur, " "))
+	}
+	return lines
+}
+
 func Render(def *api.Definition) string {
 	var b strings.Builder
 
-	b.WriteString("  " + wordHeader(def.Word))
+	b.WriteString("\n  " + wordHeader(def.Word))
 	phonText := api.FirstPhoneticText(def.Phonetics)
 	if phonText != "" {
 		b.WriteString("  " + phoneticLabel(phonText))
@@ -51,6 +99,8 @@ func Render(def *api.Definition) string {
 		b.WriteString("\n")
 
 		for di, def := range meaning.Definitions {
+			isLastDef := di == len(meaning.Definitions)-1
+
 			var prefix string
 			if isLastPOS {
 				prefix = "      "
@@ -58,28 +108,71 @@ func Render(def *api.Definition) string {
 				prefix = "  │   "
 			}
 
-			num := fmt.Sprintf("%d. ", di+1)
-			line := treeLine(prefix+"├─ ") + definitionText(num+def.Definition)
-			if plainLen(line) > width {
-				line = truncateColored(line, width)
+			connector := "├─ "
+			if isLastDef {
+				connector = "╰─ "
 			}
-			b.WriteString(line)
-			b.WriteString("\n")
+
+			num := fmt.Sprintf("%d. ", di+1)
+			treePart := treeLine(prefix + connector)
+			contentStart := visibleLen(treePart) + len(num)
+
+			var contPart string
+			var contPad int
+			if isLastDef {
+				contPart = treeLine(prefix)
+				contPad = contentStart - visibleLen(contPart)
+			} else {
+				contPart = treeLine(prefix + "│")
+				contPad = contentStart - visibleLen(contPart)
+			}
+
+			wrapped := wrapText(def.Definition, width-contentStart)
+			for li, w := range wrapped {
+				if li == 0 {
+					b.WriteString(treePart + definitionText(num+w))
+				} else {
+					b.WriteString(contPart + strings.Repeat(" ", contPad) + definitionText(w))
+				}
+				b.WriteString("\n")
+			}
 
 			if def.Example != "" {
 				var exPrefix string
-				if isLastPOS {
-					exPrefix = "      │    "
-				} else {
+				switch {
+				case !isLastPOS && !isLastDef:
 					exPrefix = "  │   │    "
+				case !isLastPOS && isLastDef:
+					exPrefix = "  │        "
+				case isLastPOS && !isLastDef:
+					exPrefix = "      │    "
+				default:
+					exPrefix = "           "
 				}
 
-				exLine := treeLine(exPrefix+"╰─ ") + exampleText("\""+def.Example+"\"")
-				if plainLen(exLine) > width {
-					exLine = truncateColored(exLine, width)
+				exTree := treeLine(exPrefix + "╰─ ")
+				exContentStart := visibleLen(exTree) + 1 // +1 for opening quote
+				exContPart := treeLine(exPrefix)
+				exContPad := exContentStart - visibleLen(exContPart)
+
+				wrappedEx := wrapText(def.Example, width-exContentStart-1) // -1 for closing quote
+				for li, w := range wrappedEx {
+					switch {
+					case len(wrappedEx) == 1:
+						b.WriteString(exTree + exampleText("\""+w+"\""))
+					case li == 0:
+						b.WriteString(exTree + exampleText("\""+w))
+					case li == len(wrappedEx)-1:
+						b.WriteString(exContPart + strings.Repeat(" ", exContPad) + exampleText(w+"\""))
+					default:
+						b.WriteString(exContPart + strings.Repeat(" ", exContPad) + exampleText(w))
+					}
+					b.WriteString("\n")
 				}
-				b.WriteString(exLine)
-				b.WriteString("\n")
+			}
+
+			if len(meaning.Definitions) > 1 && !isLastDef {
+				b.WriteString(treeLine(prefix+"│") + "\n")
 			}
 		}
 
@@ -88,6 +181,7 @@ func Render(def *api.Definition) string {
 		}
 	}
 
+	b.WriteString("\n")
 	return b.String()
 }
 
@@ -96,45 +190,6 @@ func RenderError(word string, msg string) string {
 	b.WriteString("  " + wordHeader(word) + "\n\n")
 	b.WriteString("  " + errorText("✖  "+msg) + "\n")
 	return b.String()
-}
-
-func plainLen(s string) int {
-	l := 0
-	inEscape := false
-	for _, r := range s {
-		if r == '\033' {
-			inEscape = true
-		} else if inEscape && r == 'm' {
-			inEscape = false
-		} else if !inEscape {
-			l++
-		}
-	}
-	return l
-}
-
-func truncateColored(s string, max int) string {
-	if plainLen(s) <= max {
-		return s
-	}
-	runes := []rune(s)
-	visible := 0
-	inEscape := false
-	end := 0
-	for i, r := range runes {
-		if r == '\033' {
-			inEscape = true
-		} else if inEscape && r == 'm' {
-			inEscape = false
-		} else if !inEscape {
-			visible++
-		}
-		end = i + 1
-		if visible >= max-3 {
-			break
-		}
-	}
-	return string(runes[:end]) + reset + "..."
 }
 
 var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)

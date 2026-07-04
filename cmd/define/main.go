@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/term"
@@ -29,6 +31,7 @@ Description:
   Look up English word definitions from the Free Dictionary API.
   Without a word, or with --history, launches the interactive TUI browser.
   With a word, prints the definition and exits (one-shot mode).
+  Reads a word from stdin when piped (e.g. echo hello | define).
 
 Flags:
   --history    launch interactive TUI history browser
@@ -44,7 +47,8 @@ Examples:
   define --play hello                 Look up "hello" and play pronunciation
   define --plain hello                Look up "hello" (plain text, no colors)
   define -f hello                     Look up "hello", force fresh API call
-  echo hello | define --plain hello   Plain mode (auto-detects pipe)
+  echo hello | define                  Read word from stdin
+  define hello | less                  Pipe output (auto plain text)
 `)
 }
 
@@ -57,6 +61,13 @@ func main() {
 	flag.Parse()
 
 	word := flag.Arg(0)
+
+	if word == "" && !term.IsTerminal(int(os.Stdin.Fd())) {
+		scanner := bufio.NewScanner(os.Stdin)
+		if scanner.Scan() {
+			word = strings.TrimSpace(scanner.Text())
+		}
+	}
 
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
